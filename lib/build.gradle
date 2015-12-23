@@ -1,0 +1,95 @@
+import java.text.SimpleDateFormat
+
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.bintray'
+apply from: '../config/quality-java.gradle'
+
+tasks.compileJava.dependsOn('checkstyle')
+
+group = rootProject.ext.groupName
+version = rootProject.ext.releaseVersion
+
+buildscript {
+    repositories {
+        mavenLocal()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.0'
+    }
+
+}
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+// custom tasks for creating source/javadoc jars
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: Javadoc) {
+    classifier = 'javadoc'
+    //from Javadoc.destinationDir
+}
+
+// add javadoc/source jar tasks as artifacts
+artifacts {
+    archives sourcesJar, javadocJar
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            if (plugins.hasPlugin('war')) {
+                from components.web
+            } else {
+                from components.java
+            }
+
+            Artifact sourcesJar
+            Artifact javadocJar
+
+            artifactId 'apk-config-checker-lib'
+        }
+    }
+}
+
+bintray {
+    user = bintray_user
+    key = bintray_api_key
+
+    publications = ['mavenJava']
+
+    dryRun = false
+    publish = true
+    pkg {
+        repo = 'maven'
+        name = 'apk-config-checker-lib'
+        desc = 'Runtime library for ApkConfigChecker.'
+        websiteUrl = 'https://github.com/promeG/apk-config-checker'
+        issueTrackerUrl = 'https://github.com/promeG/apk-config-checker/issues'
+        vcsUrl = 'https://github.com/promeG/apk-config-checker.git'
+        licenses = ['Apache-2.0']
+        labels = ['apk config checker', 'ApkConfigChecker', 'android']
+        publicDownloadNumbers = true
+        //Optional version descriptor
+        version {
+            name = rootProject.ext.releaseVersion //Bintray logical version name
+            released = new SimpleDateFormat('yyyy-MM-dd\'T\'HH:mm:ss.SSSZZ').format(new Date())
+            vcsTag = '1.0.0'
+            mavenCentralSync {
+                sync = false
+                //Optional (true by default). Determines whether to sync the version to Maven Central.
+                user = 'userToken' //OSS user token
+                password = 'paasword' //OSS user password
+                close = '1'
+                //Optional property. By default the staging repository is closed and artifacts are released to Maven Central. You can optionally turn this behaviour off (by puting 0 as value) and release the version manually.
+            }
+        }
+    }
+}
